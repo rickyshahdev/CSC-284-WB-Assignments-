@@ -1,76 +1,115 @@
 #include <iostream>
 #include <vector>
-#include <thread>
-#include <csignal>
-#include <chrono>
+#include <cstring>
 #include <unistd.h>
 
-// memberMemoryLeak.cpp
-// Demonstrates a memory leak caused by heap allocations inside a class member
-// Build: g++ -std=c++17 memberMemoryLeak.cpp -o memberMemoryLeak
-
-class Leaky {
-public:
-    Leaky(size_t size): size_(size) {
-        // allocate a buffer on the heap as a member
-        data_ = new char[size_];
-        // touch memory to ensure pages are committed
-        for (size_t i = 0; i < size_; i += 4096) data_[i] = 0xAA;
+// Function that creates memory leak when enabled
+void create_memory_leak() {
+    const size_t MB = 1024 * 1024; // 1 MB
+    int leak_counter = 0;
+    
+    std::cout << "Starting memory allocation (with leak)..." << std::endl;
+    std::cout << "Press Ctrl+C to stop the program." << std::endl;
+    
+    while (true) {
+        // Allocate 1 MB of memory
+        char* memory_block = new char[MB];
+        
+        // Write some data to prevent optimization
+        for (size_t i = 0; i < MB; i += 1024) {
+            memory_block[i] = static_cast<char>(i % 256);
+        }
+        
+        leak_counter++;
+        std::cout << "Allocated " << leak_counter << " MB ";
+        
+        // TO CREATE MEMORY LEAK: COMMENT OUT THE NEXT LINE
+        // TO FIX MEMORY LEAK: UNCOMMENT THE NEXT LINE
+       // delete[] memory_block;  // ← COMMENT/UNCOMMENT THIS LINE TO TOGGLE LEAK
+        
+        if (memory_block == NULL) { // Check if deleted
+            std::cout << "(memory freed)" << std::endl;
+        } else {
+            std::cout << "(LEAKING - memory not freed)" << std::endl;
+        }
+        
+        sleep(1); // Wait 1 second
     }
+}
 
-    // NOTE: destructor intentionally does NOT free `data_` so this object leaks
-    // To fix the leak, uncomment the destructor body below (or delete data_ elsewhere).
-    ~Leaky() {
-        // Free the member allocation so that deleting the object releases its heap memory.
-        // To deliberately cause a leak, comment out the following line.
-        delete[] data_;
+// Alternative version using vector (no leak possible)
+void no_memory_leak() {
+    const size_t MB = 1024 * 1024; // 1 MB
+    int allocation_counter = 0;
+    
+    std::cout << "Starting memory allocation (no leak - using vector)..." << std::endl;
+    std::cout << "Press Ctrl+C to stop the program." << std::endl;
+    
+    while (true) {
+        // Using vector for automatic memory management
+        std::vector<char> memory_block(MB);
+        
+        // Write some data to prevent optimization
+        for (size_t i = 0; i < MB; i += 1024) {
+            memory_block[i] = static_cast<char>(i % 256);
+        }
+        
+        allocation_counter++;
+        std::cout << "Allocated and freed " << allocation_counter << " MB (no leak - vector)" << std::endl;
+        
+        // Memory automatically released when vector goes out of scope
+        sleep(1); // Wait 1 second
     }
+}
 
-    // helper to inspect
-    size_t size() const { return size_; }
-
-private:
-    char* data_ = nullptr;
-    size_t size_ = 0;
-};
-
-static std::atomic<bool> running{true};
-
-void handle_sigint(int) {
-    running.store(false);
+// Simple version without menu - just run the leak
+void simple_memory_leak() {
+    const size_t MB = 1024 * 1024; // 1 MB
+    int counter = 0;
+    
+    std::cout << "=== SIMPLE MEMORY LEAK DEMO ===" << std::endl;
+    std::cout << "Allocating 1MB per second..." << std::endl;
+    
+    // TO CREATE LEAK: Comment out the delete[] line below
+    // TO FIX LEAK: Uncomment the delete[] line below
+    
+    while (true) {
+        char* block = new char[MB];
+        
+        // Use the memory
+        memset(block, counter % 256, MB);
+        
+        counter++;
+        std::cout << "Allocated " << counter << " MB total" << std::endl;
+        
+        // DELETE[] LINE - COMMENT/UNCOMMENT THIS:
+        delete[] block;  // ← COMMENT THIS OUT TO SEE MEMORY LEAK
+        
+        sleep(1);
+    }
 }
 
 int main() {
-    const size_t ONE_MB = 1024 * 1024;
-    std::vector<Leaky*> leaks;
-    leaks.reserve(1024);
-
-    size_t count = 0;
-    std::cout << "memberMemoryLeak: PID=" << getpid() << " starting. Allocating ~1MB per second.\n";
-    std::cout << "Ctrl+C to stop.\n";
-
-    // Install SIGINT handler so Ctrl+C stops allocation and allows cleanup
-    std::signal(SIGINT, handle_sigint);
-
-    while (running.load()) {
-        // create a Leaky object that internally allocates memory
-        Leaky* p = new Leaky(ONE_MB);
-
-        // By default we keep the pointer around and never delete it -> leak
-        leaks.push_back(p);
-
-        ++count;
-        if (count % 10 == 0) std::cout << "Allocated " << count << " MB via Leaky objects" << std::endl;
-
-        // Sleep ~1 second between allocations
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::cout << "=== Memory Leak Demonstration ===" << std::endl;
+    std::cout << "Choose mode:" << std::endl;
+    std::cout << "1 - Memory leak version (comment delete[] to see leak)" << std::endl;
+    std::cout << "2 - No leak version (using vector)" << std::endl;
+    std::cout << "3 - Simple version (easy to toggle leak)" << std::endl;
+    std::cout << "Enter choice (1, 2, or 3): ";
+    
+    int choice;
+    std::cin >> choice;
+    
+    if (choice == 1) {
+        create_memory_leak();
+    } else if (choice == 2) {
+        no_memory_leak();
+    } else if (choice == 3) {
+        simple_memory_leak();
+    } else {
+        std::cout << "Invalid choice. Exiting." << std::endl;
+        return 1;
     }
-
-    // Clean up: delete all stored Leaky objects (their destructor frees member memory).
-    for (Leaky* p : leaks) delete p;
-    leaks.clear();
-
-    std::cout << "Cleanup complete, exiting." << std::endl;
-
+    
     return 0;
 }
