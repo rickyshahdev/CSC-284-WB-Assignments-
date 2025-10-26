@@ -5,7 +5,7 @@
 #include "Book.h"
 #include "Library.h"
 
-// Functor for filtering by author (replaces lambda)
+// Function for filtering by author (replaces lambda)
 struct AuthorFilter {
     std::string author;
     AuthorFilter(const std::string& a) : author(a) {}
@@ -14,7 +14,7 @@ struct AuthorFilter {
     }
 };
 
-// Functor for filtering by year
+// Function for filtering by year
 struct YearFilter {
     int year;
     YearFilter(int y) : year(y) {}
@@ -23,7 +23,7 @@ struct YearFilter {
     }
 };
 
-// Functor for filtering by genre
+// Function for filtering by genre
 struct GenreFilter {
     std::string genre;
     GenreFilter(const std::string& g) : genre(g) {}
@@ -32,14 +32,14 @@ struct GenreFilter {
     }
 };
 
-// Functor for sorting by year ascending
+// Function for sorting by year ascending
 struct SortByYearAsc {
     bool operator()(const Book& a, const Book& b) const {
         return a.year < b.year;
     }
 };
 
-// Functor for sorting by year descending
+// Function for sorting by year descending
 struct SortByYearDesc {
     bool operator()(const Book& a, const Book& b) const {
         return a.year > b.year;
