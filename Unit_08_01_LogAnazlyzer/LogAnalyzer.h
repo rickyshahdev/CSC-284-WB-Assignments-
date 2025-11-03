@@ -1,24 +1,19 @@
-#ifndef LOGANALYZER_H
-#define LOGANALYZER_H
+#ifndef LOG_ANALYZER_H
+#define LOG_ANALYZER_H
 
-#include <string>
 #include <map>
+#include <string>
 #include <vector>
 #include <mutex>
 
 class LogAnalyzer {
-public:
-    explicit LogAnalyzer(const std::string& directoryPath);
-    void run();
-
 private:
-    std::string m_directory;
-    std::vector<std::string> m_keywords;
-    std::map<std::string,int> m_totals;
-    std::mutex m_mutex;
-    int m_filesProcessed = 0;
+    std::map<std::string, int> keywordCounts;
+    mutable std::mutex countMutex; // mutable because we'll lock in const function
 
-    void processFile(const std::string& filepath);
+public:
+    void analyzeFile(const std::string& filename, const std::vector<std::string>& keywords);
+    void printSummary() const;
 };
 
-#endif // LOGANALYZER_H
+#endif
