@@ -1,0 +1,10 @@
+{
+    "username": "editor1",
+    "email": "editor1@company.com",
+    "status": "enabled",
+    "permissions": ["view_content"],
+    "profile": {
+        "name": "Editor User",
+        "contact": "editor1@company.com"
+    }
+}

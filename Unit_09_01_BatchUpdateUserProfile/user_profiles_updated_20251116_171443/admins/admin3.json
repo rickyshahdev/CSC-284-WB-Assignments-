@@ -1,0 +1,11 @@
+{
+    "username": "mike_admin",
+    "email": "mike.admin@newcompany.com",
+    "role": "admin",
+    "preferences": {
+        "theme": "dark",
+        "notifications": {"status": "enabled", "since": "2024-10-01"}
+    },
+    "last_login": "2024-10-06",
+    "permissions": ["access_reports", "edit_content"]
+}

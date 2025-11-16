@@ -1,0 +1,12 @@
+{
+    "username": "sam_viewer",
+    "email": "sam.viewer@newcompany.com",
+    "role": "viewer",
+    "preferences": {
+        "theme": "light",
+        "notifications": {"status": "disabled", "since": "2024-10-01"}
+    },
+    "last_login": "2024-09-28",
+    "permissions": [{"permission": "view_content", "granted_at": "2024-09-25", "level": "read-only"}]
+
+// } // Intentionally malformed JSON

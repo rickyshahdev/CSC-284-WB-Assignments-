@@ -1,0 +1,10 @@
+{
+    "username": "editor1",
+    "email": "editor1@newcompany.com",
+    "status": {"status": "enabled", "since": "2024-10-01"},
+    "permissions": [{"permission": "view_content", "granted_at": "2024-09-25", "level": "read-only"}],
+    "profile": {
+        "name": "Editor User",
+        "contact": "editor1@newcompany.com"
+    }
+}

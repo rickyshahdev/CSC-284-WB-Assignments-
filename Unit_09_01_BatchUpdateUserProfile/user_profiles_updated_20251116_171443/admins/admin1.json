@@ -1,0 +1,10 @@
+{
+    "username": "admin1",
+    "email": "admin1@newcompany.com",
+    "status": {"status": "enabled", "since": "2024-10-01"},
+    "permissions": [{"permission": "manage_users", "granted_at": "2024-10-05", "level": "full"}, {"permission": "view_content", "granted_at": "2024-09-25", "level": "read-only"}],
+    "profile": {
+        "name": "Admin User",
+        "contact": "admin1@newcompany.com"
+    }
+}

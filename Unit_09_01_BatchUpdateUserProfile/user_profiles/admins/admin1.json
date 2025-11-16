@@ -1,0 +1,10 @@
+{
+    "username": "admin1",
+    "email": "admin1@company.com",
+    "status": "enabled",
+    "permissions": ["manage_users", "view_content"],
+    "profile": {
+        "name": "Admin User",
+        "contact": "admin1@company.com"
+    }
+}
