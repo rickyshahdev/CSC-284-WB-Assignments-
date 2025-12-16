@@ -87,7 +87,6 @@ public:
     }
 };
 
-// --- YOUR ORIGINAL UI COMPONENTS (no changes needed) ---
 class UIComponent {
 protected:
     WINDOW* window;
