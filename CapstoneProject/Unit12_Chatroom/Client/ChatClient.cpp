@@ -7,6 +7,7 @@
 #include <cstring>
 #include <iostream>
 #include <sstream>
+#include <chrono>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -34,30 +35,32 @@ private:
     void receiveMessages() {
         char buffer[4096];
         while (running) {
-            memset(buffer, 0, 4096);
-            int bytes = recv(sock, buffer, 4096, 0);
+            memset(buffer, 0, sizeof(buffer));
+            int bytes = recv(sock, buffer, sizeof(buffer), 0);
             if (bytes > 0) {
                 lock_guard<mutex> lock(*messagesMutex);
                 messages->push_back(string(buffer, bytes));
             } else if (bytes == 0) {
                 lock_guard<mutex> lock(*messagesMutex);
-                messages->push_back("Server disconnected.");
+                messages->push_back("[SERVER] Disconnected.");
                 break;
             }
+            this_thread::sleep_for(chrono::milliseconds(50));
         }
     }
 
 public:
-    NetworkManager(vector<string>* msg, mutex* mtx) : sock(-1), messages(msg), messagesMutex(mtx), running(true) {}
+    NetworkManager(vector<string>* msg, mutex* mtx)
+        : sock(-1), messages(msg), messagesMutex(mtx), running(true) {}
 
     ~NetworkManager() { disconnect(); }
 
-    bool connect(const char* ip = "127.0.0.1", int port = 54000, const string& user = "") {
+    bool connectToServer(const char* ip = "127.0.0.1", int port = 5400, const string& user = "") {
         username = user;
         sock = socket(AF_INET, SOCK_STREAM, 0);
         if (sock < 0) return false;
 
-        sockaddr_in serverHint;
+        sockaddr_in serverHint{};
         serverHint.sin_family = AF_INET;
         serverHint.sin_port = htons(port);
         inet_pton(AF_INET, ip, &serverHint.sin_addr);
@@ -67,13 +70,12 @@ public:
             return false;
         }
 
-        // Send username to server
+        // Send username
         if (!username.empty()) {
             string userMsg = ".USERNAME " + username;
             send(sock, userMsg.c_str(), (int)userMsg.size(), 0);
         }
 
-        // Start background thread
         receiveThread = thread(&NetworkManager::receiveMessages, this);
         return true;
     }
@@ -122,7 +124,7 @@ public:
         box(window, 0, 0);
         wattron(window, COLOR_PAIR(1) | A_BOLD);
         string title = "C++ Chat Client - User: " + username + " - Room: " + currentRoom;
-        mvwprintw(window, 1, (width - (int)title.length())/2, "%s", title.c_str());
+        mvwprintw(window, 1, max(0, (width - (int)title.length()) / 2), "%s", title.c_str());
         wattroff(window, COLOR_PAIR(1) | A_BOLD);
         refreshWin();
     }
@@ -137,25 +139,25 @@ public:
     RoomList(int h, int y) : UIComponent(h, 25, y, 0), selectedIndex(0) {}
     void setRooms(const vector<string>& newRooms) {
         rooms = newRooms;
-        if (selectedIndex >= (int)rooms.size()) selectedIndex = max(0, (int)rooms.size()-1);
+        if (selectedIndex >= (int)rooms.size()) selectedIndex = max(0, (int)rooms.size() - 1);
     }
     void moveSelection(int dir) {
         selectedIndex += dir;
-        if (selectedIndex<0) selectedIndex=0;
-        if (selectedIndex>=(int)rooms.size()) selectedIndex=(int)rooms.size()-1;
+        if (selectedIndex < 0) selectedIndex = 0;
+        if (selectedIndex >= (int)rooms.size()) selectedIndex = (int)rooms.size() - 1;
     }
     string getSelectedRoom() const { return rooms.empty() ? "" : rooms[selectedIndex]; }
 
     void draw() override {
-        werase(window); box(window,0,0);
-        mvwprintw(window,0,2,"[ Available Rooms ]");
-        for(size_t i=0;i<rooms.size();++i){
-            if((int)i==selectedIndex){
-                wattron(window,A_REVERSE | COLOR_PAIR(2));
-                mvwprintw(window,(int)i+2,2," %-20s ",rooms[i].c_str());
-                wattroff(window,A_REVERSE | COLOR_PAIR(2));
+        werase(window); box(window, 0, 0);
+        mvwprintw(window, 0, 2, "[ Available Rooms ]");
+        for (size_t i = 0; i < rooms.size(); ++i) {
+            if ((int)i == selectedIndex) {
+                wattron(window, A_REVERSE | COLOR_PAIR(2));
+                mvwprintw(window, (int)i + 2, 2, " %-20s ", rooms[i].c_str());
+                wattroff(window, A_REVERSE | COLOR_PAIR(2));
             } else {
-                mvwprintw(window,(int)i+2,2," %s",rooms[i].c_str());
+                mvwprintw(window, (int)i + 2, 2, " %s", rooms[i].c_str());
             }
         }
         refreshWin();
@@ -172,19 +174,20 @@ public:
     MessageArea(int h,int w,int y,int x,vector<string>* m,mutex* mut)
         : UIComponent(h,w,y,x), messages(m), mtx(mut), scrollOffset(0) {}
 
-    void scrollUp() { if(scrollOffset<(int)messages->size()-(height-2)) scrollOffset++; }
-    void scrollDown() { if(scrollOffset>0) scrollOffset--; }
-    void resetScroll() { scrollOffset=0; }
+    void scrollUp() { if(scrollOffset < (int)messages->size() - (height - 2)) scrollOffset++; }
+    void scrollDown() { if(scrollOffset > 0) scrollOffset--; }
+    void resetScroll() { scrollOffset = 0; }
 
     void draw() override {
-        werase(window); box(window,0,0); mvwprintw(window,0,2,"[ Messages ]");
+        werase(window); box(window, 0, 0); mvwprintw(window, 0, 2, "[ Messages ]");
         lock_guard<mutex> lock(*mtx);
-        int start=max(0,(int)messages->size()-(height-2)-scrollOffset);
-        int end=min((int)messages->size(),start+height-2);
-        int line=1;
-        for(int i=start;i<end;i++) mvwprintw(window,line++,2,"%s",messages->at(i).c_str());
-        if(scrollOffset>0) mvwprintw(window,1,width-3,"^");
-        if((int)messages->size()-scrollOffset>height-2) mvwprintw(window,height-2,width-3,"v");
+        int start = max(0, (int)messages->size() - (height - 2) - scrollOffset);
+        int end = min((int)messages->size(), start + height - 2);
+        int line = 1;
+        for(int i = start; i < end; i++)
+            mvwprintw(window, line++, 2, "%s", messages->at(i).c_str());
+        if(scrollOffset > 0) mvwprintw(window, 1, width-3, "^");
+        if((int)messages->size() - scrollOffset > height-2) mvwprintw(window, height-2, width-3, "v");
         refreshWin();
     }
 };
@@ -203,7 +206,7 @@ public:
         refreshWin();
     }
     void addChar(char ch){ currentInput.insert(cursorPos,1,ch); cursorPos++; }
-    void backspace(){ if(cursorPos>0){currentInput.erase(cursorPos-1,1); cursorPos--;}}
+    void backspace(){ if(cursorPos>0){ currentInput.erase(cursorPos-1,1); cursorPos--;}}
     void deleteChar(){ if(cursorPos<(int)currentInput.size()) currentInput.erase(cursorPos,1);}
     void moveCursorLeft(){ if(cursorPos>0) cursorPos--; }
     void moveCursorRight(){ if(cursorPos<(int)currentInput.size()) cursorPos++; }
@@ -241,7 +244,7 @@ private:
     vector<string> serverRooms;
     string currentRoom;
     string username;
-    bool isRunning;
+    atomic<bool> isRunning;
 
     void initCurses(){
         initscr(); cbreak(); noecho(); keypad(stdscr,TRUE); start_color();
@@ -290,7 +293,7 @@ private:
         network->sendMessage(command);
         if(command==".LIST_ROOMS"){
             lock_guard<mutex> lock(messagesMutex);
-            messages.push_back("You requested room list...");
+            messages.push_back("[INFO] Requested room list...");
         }
     }
 
@@ -301,11 +304,11 @@ public:
 #endif
         initCurses();
 
-        const char* ip="127.0.0.1"; int port=54000; string user="";
+        const char* ip="127.0.0.1"; int port=5400; string user="";
         if(argc>=2) ip=argv[1]; if(argc>=3) port=atoi(argv[2]); if(argc>=4) user=argv[3];
 
         network=new NetworkManager(&messages,&messagesMutex);
-        if(!network->connect(ip,port,user)){
+        if(!network->connectToServer(ip,port,user)){
             endwin(); cout<<"Failed to connect to server "<<ip<<":"<<port<<endl; exit(1);
         }
 
@@ -322,9 +325,9 @@ public:
         inputArea=new InputArea(maxW,maxH-inputH-infoH);
         infoArea=new InfoArea(infoH,maxW,maxH-infoH,0);
 
-        messages.push_back("Connected to chat server.");
-        messages.push_back("Type .HELP for available commands.");
-        messages.push_back("Current room: Lobby");
+        messages.push_back("[INFO] Connected to chat server.");
+        messages.push_back("[INFO] Type .HELP for commands.");
+        messages.push_back("[INFO] Current room: Lobby");
 
         infoArea->addInfo("=== Chat Commands ===");
         infoArea->addInfo(".CREATE_ROOM <name> - Create new room");
@@ -344,49 +347,53 @@ public:
 
     void run(){
         while(isRunning){
-            { lock_guard<mutex> lock(messagesMutex);
-                if(!messages.empty()) processServerMessage(messages.back());
+            // --- Auto-update messages ---
+            {
+                lock_guard<mutex> lock(messagesMutex);
+                for(const auto& msg: messages) processServerMessage(msg);
             }
 
+            // --- Draw UI ---
             header->draw(); roomList->draw(); messageArea->draw(); inputArea->draw(); infoArea->draw();
 
-            int ch=getch();
-            if(ch==KEY_F(1)){
-                infoArea->addInfo("=== Quick Help ==="); infoArea->addInfo("Use commands starting with '.'");
-                infoArea->addInfo("Arrow keys: Navigate room list"); infoArea->addInfo("PgUp/PgDn: Scroll messages");
-                infoArea->addInfo("F2: Request room list"); infoArea->addInfo("ESC: Clear input"); infoArea->addInfo("F10: Exit");
-                continue;
-            }
-            if(ch==KEY_F(2)){ sendCommand(".LIST_ROOMS"); continue; }
-            if(ch==KEY_F(10)){ sendCommand(".EXIT"); continue; }
-            if(ch==KEY_PPAGE){ messageArea->scrollUp(); continue; }
-            if(ch==KEY_NPAGE){ messageArea->scrollDown(); continue; }
-            if(ch==27){ inputArea->clear(); continue; }
-            if(ch==KEY_BACKSPACE || ch==127){ inputArea->backspace(); continue; }
-            if(ch==KEY_DC){ inputArea->deleteChar(); continue; }
-            if(ch==KEY_LEFT){ inputArea->moveCursorLeft(); continue; }
-            if(ch==KEY_RIGHT){ inputArea->moveCursorRight(); continue; }
-            if(ch==KEY_UP){ roomList->moveSelection(-1); continue; }
-            if(ch==KEY_DOWN){ roomList->moveSelection(1); continue; }
+            // --- Handle input ---
+            nodelay(stdscr, TRUE); // Non-blocking input
+            int ch = getch();
+            if(ch != ERR){
+                if(ch==KEY_F(1)){ infoArea->addInfo("[HELP] Use commands starting with '.'"); continue; }
+                if(ch==KEY_F(2)){ sendCommand(".LIST_ROOMS"); continue; }
+                if(ch==KEY_F(10)){ sendCommand(".EXIT"); continue; }
+                if(ch==KEY_PPAGE){ messageArea->scrollUp(); continue; }
+                if(ch==KEY_NPAGE){ messageArea->scrollDown(); continue; }
+                if(ch==27){ inputArea->clear(); continue; }
+                if(ch==KEY_BACKSPACE || ch==127){ inputArea->backspace(); continue; }
+                if(ch==KEY_DC){ inputArea->deleteChar(); continue; }
+                if(ch==KEY_LEFT){ inputArea->moveCursorLeft(); continue; }
+                if(ch==KEY_RIGHT){ inputArea->moveCursorRight(); continue; }
+                if(ch==KEY_UP){ roomList->moveSelection(-1); continue; }
+                if(ch==KEY_DOWN){ roomList->moveSelection(1); continue; }
 
-            if(ch=='\n' || ch==KEY_ENTER){
-                string input=inputArea->getInput();
-                if(input.empty()) continue;
-                if(input[0]=='.'){ sendCommand(input); } 
-                else{
-                    if(currentRoom=="Lobby"){
-                        lock_guard<mutex> lock(messagesMutex);
-                        messages.push_back("[SERVER] You must join a room first!");
-                    } else {
-                        network->sendMessage(input);
-                        lock_guard<mutex> lock(messagesMutex);
-                        messages.push_back("You: "+input);
+                if(ch=='\n' || ch==KEY_ENTER){
+                    string input=inputArea->getInput();
+                    if(input.empty()) continue;
+                    if(input[0]=='.'){ sendCommand(input); } 
+                    else{
+                        if(currentRoom=="Lobby"){
+                            lock_guard<mutex> lock(messagesMutex);
+                            messages.push_back("[SERVER] You must join a room first!");
+                        } else {
+                            network->sendMessage(input);
+                            lock_guard<mutex> lock(messagesMutex);
+                            messages.push_back("You: "+input);
+                        }
                     }
+                    continue;
                 }
-                continue;
+
+                if(ch>=32 && ch<=126) inputArea->addChar(static_cast<char>(ch));
             }
 
-            if(ch>=32 && ch<=126) inputArea->addChar(static_cast<char>(ch));
+            this_thread::sleep_for(chrono::milliseconds(50));
         }
     }
 };
